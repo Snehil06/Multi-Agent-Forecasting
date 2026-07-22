@@ -1,31 +1,79 @@
-# Multi-Agent Financial Forecasting
+# Multi-Agent Financial Forecasting System
 
-A game-theoretically aggregated multi-agent system that forecasts daily stock returns and honestly backtests them, built to demonstrate a robust, leak-free data engineering pipeline.
+An end-to-end quantitative forecasting pipeline that leverages a multi-agent framework to predict SPY log returns. The system features specialized machine learning models (agents), dynamic weight aggregation via the **Hedge algorithm**, a rolling walk-forward backtesting framework, and a Streamlit-based visualization dashboard.
 
-### Architecture
-The system generates daily directional signals using four distinct models, which are then dynamically weighted by a meta-model and rigorously evaluated:
+---
 
-`[Trend, Momentum, Volatility, Equal Weight] → Hedge Referee (Ensemble) → Backtest Engine → Streamlit Dashboard`
+## 🏗️ System Architecture
 
-### Results
-*Note: As expected in highly efficient markets, directional accuracy remains close to 50% across all models. The focus of this architecture is on mathematically principled aggregation and strict avoidance of lookahead bias.*
+The pipeline processes financial market data through a series of modular stages:
 
-| Label | Sharpe Ratio | Directional Accuracy |
-| :--- | :--- | :--- |
-| Buy & Hold | 0.786 | 0.5551 |
-| TrendAgent | 0.447 | 0.5277 |
-| Hedge Ensemble | 0.173 | 0.5147 |
-| VolatilityAgent | 0.168 | 0.5174 |
-| Equal Weight | -0.003 | 0.5057 |
-| MomentumAgent | -0.077 | 0.5020 |
-
-### Setup
-To run the interactive dashboard locally, clone this repository and execute the following commands in your terminal:
-
-```bash
-pip install -r requirements.txt
-python -m streamlit run app.py
+```mermaid
+graph TD
+    A[Data Ingestion] -->|Download SPY + ^VIX| B[Feature Engineering]
+    B -->|Lagged Technical Indicators| C[Specialized Agents]
+    
+    subgraph Specialized Agents
+        C1[TrendAgent<br>Fourier + LinReg]
+        C2[MomentumAgent<br>XGBoost on Momentum]
+        C3[VolatilityAgent<br>XGBoost on Vol/VIX]
+        C4[SequenceAgent<br>PyTorch LSTM]
+    end
+    
+    C1 & C2 & C3 & C4 -->|Daily Predictions| D[Hedge Aggregator]
+    D -->|Exponential Weights Update| E[Ensemble Forecast]
+    E --> F[Walk-Forward Backtesting]
+    F -->|Metrics Generation| G[Streamlit Dashboard]
 ```
 
-### What I learned
-I learned that because stock markets are highly efficient and hard to predict, the real value of this project wasn't about trying to magically beat the market, but rather about building a clean, leak-free data pipeline and designing a system that can dynamically adapt to sudden market shocks.
+1. **Data Ingestion (`data/fetch.py`)**: Fetches SPY daily prices and VIX index level data using `yfinance` with automated retry logic.
+2. **Feature Engineering (`pipeline/features.py`)**: Constructs technical indicators (RSI, MACD, Bollinger Band Width) and lagged returns.
+3. **Specialized Agents (`pipeline/agents.py`)**:
+   * **TrendAgent**: Generates linear trend lines fitted on Calendar Fourier seasonal components.
+   * **MomentumAgent**: XGBoost trained on momentum indicators (`rsi_14`, `macd_signal`, and log return lags).
+   * **VolatilityAgent**: XGBoost trained on market volatility indicators (`bb_width`, rolling stds, VIX levels).
+   * **SequenceAgent**: PyTorch LSTM model mapping sequences of historical log returns to predict future movements.
+4. **Hedge Referee (`pipeline/aggregator.py`)**: Operates as a dynamic online ensemble referee. Updates agent weights exponentially according to their daily Mean Squared Error (MSE) loss.
+5. **Backtester (`pipeline/backtest.py`)**: Runs a robust walk-forward rolling train-test simulation, strictly lagging features by 1 day to enforce **no-leakage discipline**.
+6. **Dashboard (`app.py`)**: Visualizes cumulative returns, individual agent weights over time, and compares performance metrics.
+
+---
+
+## 📈 Backtest Performance Results
+
+*Below are the simulated backtesting metrics from 2013 to 2024 (SPY benchmark)*:
+
+| Strategy / Model | MAE | Directional Accuracy | Sharpe Ratio | Max Drawdown | Information Ratio |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Buy & Hold** | 0.006470 | 55.51% | 0.786 | 33.72% | 0.000 |
+| **Hedge Ensemble** | 0.006993 | 53.44% | 0.706 | 33.72% | -0.133 |
+| **SequenceAgent (LSTM)** | 0.006973 | 53.74% | 0.672 | 33.72% | -0.200 |
+| **TrendAgent** | 0.007004 | 52.77% | 0.447 | 37.62% | -0.422 |
+| **Equal Weight** | 0.007013 | 51.97% | 0.337 | 44.32% | -0.548 |
+| **VolatilityAgent** | 0.007215 | 52.14% | 0.141 | 33.17% | -0.634 |
+| **MomentumAgent** | 0.007370 | 51.07% | -0.136 | 60.69% | -0.779 |
+
+---
+
+## 🚀 Getting Started
+
+### 1. Installation
+Clone the repository and install dependencies:
+```bash
+git clone https://github.com/Snehil06/Multi-Agent-Forecasting.git
+cd Multi-Agent-Forecasting
+pip install -r requirements.txt
+```
+
+### 2. Run the Backtest Pipeline
+To download market data, build features, train all agents, and run the walk-forward backtest, run:
+```bash
+python -m pipeline.backtest
+```
+This updates the CSV results located inside `results/`.
+
+### 3. Launch the Streamlit Dashboard
+Visualize the predictions, weights, and returns interactively:
+```bash
+streamlit run app.py
+```
