@@ -30,6 +30,6 @@ python -m streamlit run app.py
 ### What I learned
 I learned that because stock markets are highly efficient and hard to predict, the real value of this project wasn't about trying to magically beat the market, but rather about building a clean, leak-free data pipeline and designing a system that can dynamically adapt to sudden market shocks.
 
-###Dashboard:
+### Dashboard:
 <img width="1700" height="2200" alt="image" src="https://github.com/user-attachments/assets/c44a672e-2efa-4204-a692-8fc8f08fa86d" />
 
